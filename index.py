@@ -307,14 +307,41 @@ HTML_DASHBOARD = """
             writeLog("Stopping process... Please wait.", "log-fail");
         }
 
-        async function startProcessing() {
-            if (isRunning) return;
-            
-            let text = document.getElementById('uidInput').value.trim();
-            if(!text) {
-                alert("Please input some data first!");
-                return;
+                async function processItem(uid, originalLine) {
+            let targetUrl = uid;
+            if (/^\\d+$/.test(uid)) {
+                targetUrl = `https://www.facebook.com/profile.php?id=${uid}`;
             }
+
+            try {
+                let response = await fetch(`/profile?url=${encodeURIComponent(targetUrl)}`);
+                let resData = await response.json();
+                
+                if (response.ok && resData.success && resData.data && resData.data.status === "success") {
+                    let username = resData.data.username;
+                    if (username && username !== "Not found" && !invalidUsernames.has(username.toLowerCase())) {
+                        successCount++;
+                        f1_data.push(`${uid}|${username}`);
+                        f2_data.push(username);
+                        f3_data.push(`${originalLine}|${username}`);
+                        writeLog(`✓ SUCCESS: ${uid} -> ${username}`, "log-success");
+                        return;
+                    }
+                }
+                
+                // 🛠️ মডিফিকেশন: আসল এরর মেসেজটি স্ক্রিনে দেখাবে
+                failCount++;
+                f4_data.push(originalLine);
+                let errorMsg = resData.message || "No Username Found / Blocked";
+                writeLog(`✗ FAILED: ${uid} -> Reason: ${errorMsg}`, "log-fail");
+                
+            } catch (err) {
+                failCount++;
+                f4_data.push(originalLine);
+                writeLog(`✗ ERROR: ${uid} -> Network/API Error`, "log-fail");
+            }
+        }
+
 
             let lines = text.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
             
