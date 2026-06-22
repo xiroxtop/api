@@ -59,14 +59,12 @@ ssl_context.verify_mode = ssl.CERT_NONE
 
 # ============= বুট অ্যানিমেশন (লোগো + স্পিনার) =============
 def boot_animation():
-    # প্রথমে লোগো দেখান
     logo_design()
     chars = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷']
     for i in range(30):
         sys.stdout.write(f"\r{C}Starting server {chars[i % len(chars)]} {W}")
         sys.stdout.flush()
         time.sleep(0.1)
-    # লোগো আবার দেখান (কারণ স্পিনার লেখা ওভাররাইট করেছে)
     logo_design()
     print(f"\r{G}✓ Server started successfully!{W} {' ' * 20}\n")
 
@@ -318,9 +316,12 @@ def get_profile():
         url = request.args.get('url')
 
     if not url:
-        return jsonify({"status": "error", "message": "Please provide a Facebook profile URL"}), 400
+        return jsonify({"status": "error", "message": "Please provide a Facebook profile URL or ID"}), 400
+    
+    # 🛠️ মডিফিকেশন: ইনপুট থেকে স্পেস বাদ দেওয়া এবং ডোমেন না থাকলে অটো যোগ করা
+    url = str(url).strip()
     if 'facebook.com' not in url:
-        return jsonify({"status": "error", "message": "Please provide a valid Facebook URL"}), 400
+        url = f"https://www.facebook.com/{url}"
 
     result = extractor.extract_profile_info(url)
     with lock:
@@ -382,10 +383,11 @@ def batch_profile():
 
     results = []
     for url in urls:
-        if 'facebook.com' in url:
-            result = extractor.extract_profile_info(url)
-        else:
-            result = {"status": "error", "message": "Invalid Facebook URL"}
+        url = str(url).strip()
+        if 'facebook.com' not in url:
+            url = f"https://www.facebook.com/{url}"
+            
+        result = extractor.extract_profile_info(url)
         results.append({"url": url, "result": result})
         with lock:
             if result.get('status') == 'success':
@@ -397,6 +399,7 @@ def batch_profile():
                 err_msg = result.get('message', 'error')
                 print(f"{R}✗ {url} -> {err_msg}{W} (Total: {G}{success_count} S{W}, {R}{fail_count} F{W})")                
     return jsonify({"success": True, "results": results, "total": len(results), "timestamp": datetime.now().isoformat()})
+
 # ============= মেইন =============
 if __name__ == '__main__':
     boot_animation()
